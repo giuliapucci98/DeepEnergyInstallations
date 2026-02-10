@@ -133,8 +133,13 @@ class EnergyExplicit():
         self.impulse_cost_fixed = impulse_cost_fixed
 
     # Analytic approach
-    def h_to_vdc(self, h):
-
+    def h_to_vdc(self, h, jumps):
+        h_V = h[:,:1]
+        h_D = h[:,-1:]
+        V = 1 - torch.exp( - self.s * h_V )
+        D = self.d * h_D
+        C_R = (self.control_parameter - V )*jumps
+        return V, D, C_R
 
 
 
@@ -176,14 +181,17 @@ class EnergyExplicit():
         dN = torch.poisson(rates) * self.eq_type
         Exp = torch.distributions.Exponential(self.jump_size).sample((batch_size,))
 
-        return Exp * dN
+        jump = (Exp * dN)@self.sig.T
+
+        jump_V =(1- torch.exp(-Exp @ self.sig[:-1,:].T  ))*dN
+        return jump*(1-torch.exp(- self.dt * self.xi))/(self.xi*self.dt), jump_V
 
 
 
 
     def step_forward(self, i, h, jumps):
-        x_next = x + (self.drift(self.dt * i, x) - self.compensator(self.dt * i, x))*self.dt + self.gamma(self.dt * i, x, jumps)
-        return x_next
+        h_next = h*torch.exp( - self.xi * self.dt) + jumps
+        return h_next
 
     def f(self, t, x, y, u, Gamma):
         x1, x2, x3 = torch.split(x, 1, dim=-1)
