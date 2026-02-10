@@ -17,7 +17,10 @@ path = "state_dicts/"
 
 new_folder_flag = True
 
-new_folder = "test_Dcontrol/"
+new_folder = "retest_regular_control/"
+
+a = 1
+print(a)
 
 
 if new_folder_flag:
@@ -31,12 +34,14 @@ if new_folder_flag:
 ref_flag = False
 
 
-dim_x, dim_y, dim_d,dim_j, dim_h, N, itr, batch_size, MC_size, lr = 3, 1, 1, 2, 100, 50, 150, 10, 5000, 0.0001
+dim_x, dim_y, dim_d,dim_j, dim_h, N, itr, batch_size, MC_size, lr = 3, 1, 1, 2, 100, 50, 3, 10, 50, 0.0001
 x0, T, multiplyer = 0.0, 1.0, 5
 
 eq_type=1
 
-dict_parameters = {'T': 1, 'x0': [0.4, 0.7, 0.0], 'N': 50, 'lam': [5.0,5.0], 'control_parameter':None, 'jump_size': [0.5,1.0], 'sig': [[0.2, 0.2], [0.0, 0.05]], 'xi':[0.2,0.2], 'd':0.7, 'r':0.4, 'impulse_cost_rate': 0.1, 'impulse_cost_fixed': 0.0, 's': 1.0, 'control_min': 0, 'control_max': 1.0, 'number_of_impulses': 20}
+dict_parameters = {'T': 1, 'x0': [0.4, 0.7, 0.0], 'N': 50, 'lam': [0.0271*365,0.896*365], 'control_parameter':None, 'jump_size': [0.2328,1.3387], 'sig': [[1.0305, 1.1593], [0.0, 0.9781]], 'xi':[0.8977*365,0.6539*365], 'd':0.7, 'r':0.4, 'impulse_cost_rate': 0.1, 'impulse_cost_fixed': 0.0, 's': 1.0, 'control_min': 0.5, 'control_max': 3.0, 'number_of_impulses': 1}
+
+
 #dict_parameters = {'T': 1, 'x0': [0.4, 0.7, 0.4], 'N': 50, 'lam': [5.0,2.0], 'control_parameter':None, 'jump_size': [3.0,1.0], 'sig': [[0.2, 0.5], [0.0, 0.05]], 'xi':[0.5,0.2], 'd':0.7, 'r':0.0, 'impulse_cost_rate': 1.0, 'impulse_cost_fixed': 0.0, 's': 1.0, 'control_min': 0.0, 'control_max': 0.7, 'number_of_impulses': 3}
 T, x0, N, lam, control_parameter, jump_size, sig, xi, d, r, impulse_cost_rate, impulse_cost_fixed, s, control_min, control_max, number_of_impulses = dict_parameters.values()
 
