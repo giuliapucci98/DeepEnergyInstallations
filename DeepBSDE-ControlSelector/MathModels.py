@@ -28,7 +28,7 @@ class Energy():
         self.times = torch.linspace(0., T, N)
         self.dim_x = dim_x
         self.dim_y = dim_y
-        self.dim_d = dim_d
+        self.dim_d = (dim_x-1)//2
         self.dim_j = dim_j
         self.eq_type = eq_type
         self.xi = torch.tensor(xi)
@@ -109,6 +109,8 @@ class Energy():
 
 # TODO: So far  for one dimensional. Extende to multi-dimensional
 #TODO: Add impulse fixed cost in main
+
+
 class EnergyExplicit():
     def __init__(self, T, lam, control_parameter, jump_size, sig, N, x0, dim_x, dim_y, dim_d, dim_j, eq_type, xi, d, r, impulse_cost_rate, impulse_cost_fixed=0.0, s=1.0):
         self.T = T
@@ -123,7 +125,7 @@ class EnergyExplicit():
         self.times = torch.linspace(0., T, N)
         self.dim_x = dim_x
         self.dim_y = dim_y
-        self.dim_d = dim_d
+        self.dim_d = (dim_x-1)//2
         self.dim_j = dim_j
         self.eq_type = eq_type
         self.xi = torch.tensor(xi)
@@ -133,14 +135,7 @@ class EnergyExplicit():
         self.impulse_cost_fixed = impulse_cost_fixed
 
     # Analytic approach
-    def h_to_vdc(self, h, jumps):
-        h_V = h[:,:1]
-        h_D = h[:,-1:]
-        V = 1 - torch.exp( - self.s * h_V )
-        D = self.d * h_D
-        C_R = (self.control_parameter - V )*jumps
-        return V, D, C_R
-
+    
 
 
 
@@ -179,19 +174,40 @@ class EnergyExplicit():
 
         # rates = torch.ones(batch_size, self.dim_j) * self.dt * self.lam
         dN = torch.poisson(rates) * self.eq_type
-        Exp = torch.distributions.Exponential(self.jump_size).sample((batch_size,))
 
-        jump = (Exp * dN)@self.sig.T
+        jump = torch.zeros_like(dN)
 
-        jump_V =(1- torch.exp(-Exp @ self.sig[:-1,:].T  ))*dN
-        return jump*(1-torch.exp(- self.dt * self.xi))/(self.xi*self.dt), jump_V
+        # TODO: Columb loop can be vectorized
+        for row in range(batch_size):
+            for col in range(self.dim_j):
+                if dN[row, col] > 0:
+                    Exp = torch.distributions.Exponential(self.jump_size[col]).sample((int(dN[row, col]),))
+                    Uni = torch.distributions.Uniform(0, self.dt).sample((int(dN[row, col]),))
+                    jump[row, col] = torch.sum(torch.exp(-self.xi[col] * (self.dt - Uni) * Exp), dim=0)
+
+
+        jump_H = jump@self.sig.T
+
+        # TODO : add V jumps
+        jump_V = None
+        return jump_H, jump_V
 
 
 
 
     def step_forward(self, i, h, jumps):
-        h_next = h*torch.exp( - self.xi * self.dt) + jumps
+        jumps_H, jumps_V = jumps
+        h_next = h*torch.exp( - self.xi * self.dt) + jumps_H
         return h_next
+    
+    def h_to_vdc(self, h, jumps):
+        h_V = h[:,:1]
+        h_D = h[:,-1:]
+        V = 1 - torch.exp( - self.s * h_V )
+        D = self.d * h_D
+        C_R = h_V*0
+        return torch.cat((V, D, C_R), dim=-1)
+
 
     def f(self, t, x, y, u, Gamma):
         x1, x2, x3 = torch.split(x, 1, dim=-1)

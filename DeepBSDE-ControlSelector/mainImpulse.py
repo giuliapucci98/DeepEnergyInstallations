@@ -2,10 +2,12 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
 import json
 
 import time as cas
 
+from MathModels import EnergyExplicit
 from MathModels import Energy
 from Solver import Result
 from impulseSelection import ImpulseSelection
@@ -13,24 +15,25 @@ from impulseSelection import ImpulseSelection
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-path = "state_dicts/"
+base_dir = Path(__file__).resolve().parent
+path = str(base_dir / "state_dicts") + os.sep
 
 new_folder_flag = True
 
-new_folder = "retest_regular_control/"
+new_folder = str(base_dir / "retest_regular_control")
 
 a = 1
 print(a)
 
 
 if new_folder_flag:
-    path = new_folder + path
+    path = str(Path(new_folder) / "state_dicts") + os.sep
     if not os.path.exists(path):
         os.makedirs(path)
-    if not os.path.exists(new_folder + "/Graphs"):
-        os.makedirs(new_folder + "/Graphs")
+    if not os.path.exists(str(Path(new_folder) / "Graphs")):
+        os.makedirs(str(Path(new_folder) / "Graphs"))
         #path = new_folder + path
-    graph_path = new_folder + "/Graphs/"
+    graph_path = str(Path(new_folder) / "Graphs") + os.sep
 ref_flag = False
 
 
@@ -46,15 +49,14 @@ dict_parameters = {'T': 1, 'x0': [0.4, 0.7, 0.0], 'N': 50, 'lam': [0.0271*365,0.
 T, x0, N, lam, control_parameter, jump_size, sig, xi, d, r, impulse_cost_rate, impulse_cost_fixed, s, control_min, control_max, number_of_impulses = dict_parameters.values()
 
 
-mathModel = Energy(T, lam, control_parameter, jump_size, sig, N, x0, dim_x, dim_y, dim_d, dim_j, eq_type, xi, d, r, impulse_cost_rate, impulse_cost_fixed, s)
+mathModel = EnergyExplicit(T, lam, control_parameter, jump_size, sig, N, x0, dim_x, dim_y, dim_d, dim_j, eq_type, xi, d, r, impulse_cost_rate, impulse_cost_fixed, s)
 
 
 impulse = ImpulseSelection(control_min, control_max, number_of_impulses, mathModel, graph_path)
 control, y0= impulse.select_impulse(dim_h, N, path, MC_size, batch_size, itr, multiplyer, lr)
 print("Best Control: " + str(control) + "Y0: " +str(y0))
 
-
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+print(os.getcwd())
 
 #Opt. control for evaluation, put in here the control you want to evaluate
 #mathModel.control_parameter = 1.5789473684210527
@@ -69,9 +71,11 @@ y, u = results.predict(N, eval_size, x, opt_path, jumps, poiss)
 
 t = np.linspace(0, T, N)
 
+n_of_plots = 3
+
 fig, axs = plt.subplots(3, 1, figsize=(10, 8))
         # Plot X process samples
-for i in range(20):
+for i in range(n_of_plots):
     axs[0].plot(t, x[i, 0, :], label=f"Sample {i}")
     axs[0].set_title("V(t)")
     axs[0].set_xlabel("Time")
@@ -79,14 +83,14 @@ for i in range(20):
     axs[0].grid(True)
 
 # Plot Y approximation samples
-for i in range(20):
+for i in range(n_of_plots):
     axs[1].plot(t, x[i,1,:], label=f"Sample {i}")
     axs[1].set_title("D(t)")
     axs[1].set_xlabel("Time")
     axs[1].set_ylabel("X2")
     axs[1].grid(True)
 
-for i in range(20):
+for i in range(n_of_plots):
     axs[2].plot(t, x[i, -1,:], label=f"Sample {i}")
     axs[2].set_title("C_R(t)")
     axs[2].set_xlabel("Time")
@@ -102,7 +106,7 @@ plt.show()
 
 fig, axs = plt.subplots(1, 1, figsize=(10, 8))
         # Plot X process samples
-for i in range(20):
+for i in range(n_of_plots):
     axs.plot(t, y[i, 0, :].detach().numpy(), label=f"Sample {i}")
     axs.set_title("Y(t)")
     axs.set_xlabel("Time")

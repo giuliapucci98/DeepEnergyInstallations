@@ -53,6 +53,11 @@ class BSDEsolver():
         x = self.mathModel.x_0 + torch.zeros(batch_size, self.mathModel.dim_x, device=device,
                                              requires_grad=True).reshape(
             -1, self.mathModel.dim_x)  # [bs,dim_x]
+        
+        h_V = -torch.log(1 - x[:, :self.mathModel.dim_d]) / self.mathModel.s
+        h_D = x[:, self.mathModel.dim_d:self.mathModel.dim_d + 1] / self.mathModel.d
+        h = torch.cat((h_V, h_D), dim=-1)
+
         poisson = torch.zeros(batch_size, 1, device=device)  # [bs,1]
 
 
@@ -63,18 +68,23 @@ class BSDEsolver():
             # torch.poisson(rates) generates Poisson-distribution random numbers with the given rates:
             # it indicates the number of jumps that occur in a time interval of length dt
             jumps = self.mathModel.jumps(batch_size)
-            x_next = self.mathModel.step_forward(n, x,jumps)
-            poisson += (torch.sum(jumps, dim=-1, keepdim=True) != 0.0).float()  # we store the jumps in the poisson variable
+            jumps_H, jumps_V = jumps
+            h_next = self.mathModel.step_forward(n, h,jumps)
+            x_next = self.mathModel.h_to_vdc(h_next, jumps)
+            poisson += (torch.sum(jumps_H, dim=-1, keepdim=True) != 0.0).float()  # we store the jumps in the poisson variable
         else:
             for i in range(n):
                 jumps = self.mathModel.jumps(batch_size)
-                x = self.mathModel.step_forward(i, x, jumps)
-                poisson += (torch.sum(jumps, dim=-1, keepdim=True) != 0.0).float()
+                jumps_H, jumps_V = jumps
+                h = self.mathModel.step_forward(i, h, jumps)
+                poisson += (torch.sum(jumps_H, dim=-1, keepdim=True) != 0.0).float()
             jumps = self.mathModel.jumps(batch_size)
-            x_next = self.mathModel.step_forward(n, x, jumps)
-            poisson += (torch.sum(jumps, dim=-1, keepdim=True) != 0.0).float()
+            jumps_H, jumps_V = jumps
+            h_next = self.mathModel.step_forward(n, h, jumps)
+            x_next = self.mathModel.h_to_vdc(h_next, jumps)
+            poisson += (torch.sum(jumps_H, dim=-1, keepdim=True) != 0.0).float()
 
-        return x, x_next, jumps, poisson
+        return x, x_next, jumps_H, poisson
 
     # output: x: state at the current time step (n)
     # x_next: state at the next time step (n+1)
@@ -100,6 +110,7 @@ class BSDEsolver():
                 print("itr=" + str(i))
             flag = True
             flag_n = 0
+            # TODO: remove while if no nans
             while flag:  # we ensure that no nan appears
                 flag_n += 1
                 x,  x_next, jumps, poisson = self.gen_forward(batch_size, N, n)
@@ -139,7 +150,7 @@ class BSDEsolver():
             xc = xc.repeat(1, MC_size, 1)  # [bs, MC_size, dimx]
 
             #xc= torch.ones(batch_size, MC_size, MC_size)
-            MC_jumps = self.mathModel.jumps(MC_size)
+            MC_jumps,_ = self.mathModel.jumps(MC_size)
             MC_jumps = torch.unsqueeze(MC_jumps, 0)
             MC_jumps = torch.repeat_interleave(MC_jumps, batch_size,
                                                dim=0)  # TODO: here we have same jumps for all x in batch (same as Xavier). Maybe beter to generate batch_size x MC_size jumps
@@ -222,8 +233,13 @@ class Result():
         delta_t = self.mathModel.dt
         flag= True
         while flag:
-            x = torch.zeros(batch_size, N, self.mathModel.dim_x, device=device).reshape(-1, self.mathModel.dim_x,N) #[bs,dx,N]                                                                         N)  # [bs,dx,N]
+            x = torch.zeros(batch_size, self.mathModel.dim_x, N, device=device) #[bs,dx,N]                                                                         N)  # [bs,dx,N]
+            h = torch.zeros(batch_size, self.mathModel.dim_d + 1, N, device=device)  # [bs,dim_h,N]
+
             x_0_tensor = self.mathModel.x_0 + torch.zeros(batch_size, self.mathModel.dim_x, device=device)  # [bs,dx]
+            h_V = -torch.log(1 - x_0_tensor[:, :self.mathModel.dim_d]) / self.mathModel.s
+            h_D = x_0_tensor[:, self.mathModel.dim_d:self.mathModel.dim_d + 1] / self.mathModel.d
+            h[:, :, 0] = torch.cat((h_V, h_D), dim=-1)
             x[:, :, 0] = x_0_tensor
 
             poisson = torch.zeros(batch_size, 1, device=device)  # [bs,dd,N]
@@ -234,10 +250,11 @@ class Result():
             jumps = torch.zeros(batch_size, self.mathModel.dim_j, N, device=device)
             for i in range(N - 1):
                 jumps_i = self.mathModel.jumps(batch_size)
-                x[:, :, i + 1] = self.mathModel.step_forward(i, x[:, :, i], jumps_i)
-                jumps[:, :, i] = jumps_i
+                h[:, :, i + 1] = self.mathModel.step_forward(i, h[:, :, i], jumps_i)
+                x[:, :, i + 1] = self.mathModel.h_to_vdc(h[:, :, i + 1], jumps_i)
+                jumps[:, :, i] = jumps_i[0]
 
-                poisson += (torch.sum(jumps_i, dim=-1, keepdim=True) != 0.0).float()# we store the jumps in the poisson variable
+                poisson += (torch.sum(jumps_i[0], dim=-1, keepdim=True) != 0.0).float()# we store the jumps in the poisson variable
 
             if torch.isnan(x).any() or torch.isinf(x).any():
                 print("NaN or Inf detected in generated x, retrying...")
@@ -287,7 +304,7 @@ class Result():
             xc = x_n.clone().unsqueeze(1)  # [bs, 1, dimx]
             xc = xc.repeat(1, MC_size, 1)  # [bs, MC_size, dimx]
 
-            MC_jumps = self.mathModel.jumps(MC_size)
+            MC_jumps,_ = self.mathModel.jumps(MC_size)
             MC_jumps = torch.unsqueeze(MC_jumps, 0)
             MC_jumps = torch.repeat_interleave(MC_jumps, batch_size,
                                                dim=0)  # TODO: here we have same jumps for all x in batch (same as Xavier). Maybe beter to generate batch_size x MC_size jumps

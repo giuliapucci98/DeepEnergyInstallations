@@ -1,0 +1,6 @@
+.idea/
+.venv/
+.python-version
+__pycache__/
+retest_regular_control/
+DeepBSDE-ControlSelector/retest_regular_control/
