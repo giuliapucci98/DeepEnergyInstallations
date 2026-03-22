@@ -34,7 +34,7 @@ class ImpulseSelection:
             loss = json.load(f)
         eval_size = 100
         results = Result(self.mathModel, dim_h)
-        x, jumps, poisson = results.gen_x(eval_size, N)
+        x, jumps, poisson, h = results.gen_x(eval_size, N)
         y, u = results.predict(N, eval_size, x, path, jumps, poisson)
         compensator = results.compensator(N,eval_size,x,path,MC_size)
         return y

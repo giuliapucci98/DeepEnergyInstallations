@@ -118,7 +118,7 @@ class ModelU(nn.Module):
         #     x_nor = standardize(x_nor)
 
         time = torch.ones(x_nor.shape[:-1] + (1,), device=x.device, dtype=x.dtype) * delta_t * n
-        inpt_j = torch.cat((x_nor, torch.exp(jumps), time), dim=-1)
+        inpt_j = torch.cat((x_nor, jumps, time), dim=-1)
 
 
         #inpt_j = torch.cat((x_nor, torch.exp(jumps), time), dim=-1)

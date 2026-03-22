@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-import matplotlib.pyplot as plt
 
 
 # from collections import deque
@@ -26,6 +25,7 @@ class Train():
         self.mathModel = mathModel
         self.dim_h = dim_h
         self.model = ModelControl(mathModel, self.dim_h)
+        self.model.to(torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
 
 
     def train(self, batch_size, itr, lr):
