@@ -19,7 +19,6 @@ print(device)
 
 
 train= False
-#train = True
 
 #base_dir = Path(__file__).resolve().parent
 base_dir = Path.cwd()
@@ -35,17 +34,16 @@ if new_folder_flag:
         os.makedirs(path)
     if not os.path.exists(str(Path(new_folder) / "Graphs")):
         os.makedirs(str(Path(new_folder) / "Graphs"))
-        #path = new_folder + path
+        path = new_folder + path
     graph_path = str(Path(new_folder) / "Graphs") + os.sep
 ref_flag = False
-
 dim_y, dim_d, dim_h =  1, 3, 256
 dim_x = 2*dim_d + 1
 dim_j = dim_d + 1
-itr, batch_size, MC_size, lr =  400, 2000, 5000, 0.001
+itr, batch_size, MC_size, lr =  1500, 2000, 5000, 0.001
 x0, T, multiplyer = 0.0, 1.0, 20
 
-n_runs = 20
+n_runs = 5
 
 
 a = 365
@@ -146,14 +144,12 @@ if train:
     for i in range(n_runs):
         torch.cuda.reset_peak_memory_stats()  # reset peak memory for this run
         train_class = Train(mathModel, dim_h)
-
-        # Save initial model state
-        torch.save(train_class.model.state_dict(), path + "state_dict_" + str(i))
-
         # Track start time for this run
         start_run = cas.time()
 
         losses, control, x = train_class.train(batch_size, itr, lr)
+
+        torch.save(train_class.model.state_dict(), path + "state_dict_" + str(i))
 
         # Track peak GPU memory
         peak_mem = torch.cuda.max_memory_allocated() / (1024 ** 3)

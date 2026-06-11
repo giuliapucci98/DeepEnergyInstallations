@@ -10,7 +10,7 @@ import numpy as np
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-from Network import ModelControl
+from Network import ModelControlConstant
 
 
 
@@ -24,7 +24,8 @@ class Train():
     def __init__(self, mathModel, dim_h):
         self.mathModel = mathModel
         self.dim_h = dim_h
-        self.model = ModelControl(mathModel, self.dim_h)
+        #self.model = ModelControlConstant(mathModel, self.dim_h)
+        self.model = ModelControlConstant(mathModel)
         self.model.to(torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
 
 
@@ -34,9 +35,9 @@ class Train():
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
         for i in range(itr):
-            if i % 200 == 0:
-                print("itr=" + str(i))
             control, x, J = self.model(batch_size)
+            if i % 50 == 0:
+                print("itr=", str(i) , "control:", control[0], "J:", J[0])
             if torch.isnan(x).any():
                 print("NaN detected in x at iteration", i)
                 break

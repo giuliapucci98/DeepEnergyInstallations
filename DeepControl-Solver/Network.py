@@ -113,4 +113,54 @@ class ModelControl(nn.Module):
 
         return control_tensor, x_tensor, J.unsqueeze(-1)
 
+class ModelControlConstant(nn.Module):
+    def __init__(self, equation):
+        super(ModelControlConstant, self).__init__()
 
+        self.constant_control = nn.Parameter(torch.zeros(1))
+
+
+        self.mathModel = equation
+
+    def forward(self, batch_size):
+
+        x_tensor = self.mathModel.x_0 + torch.zeros(batch_size, self.mathModel.N, self.mathModel.dim_x, device=device)
+
+        x = x_tensor[:, 0, :].clone()
+
+        h_V = -torch.log(1 - x[:, :self.mathModel.dim_d]) / self.mathModel.s[:, 0]
+        h_D = x[:, self.mathModel.dim_d:self.mathModel.dim_d + 1] / self.mathModel.d[0]
+        h = torch.cat((h_V, h_D), dim=-1)
+
+        C_R = x[:, -self.mathModel.dim_d:]
+
+        control_tensor = torch.zeros(batch_size, self.mathModel.N, self.mathModel.dim_d, device=device)
+
+        f = torch.zeros(batch_size, 1, device=device)
+
+        poiss = torch.zeros(batch_size, self.mathModel.dim_j, device=device)
+
+        control = torch.sigmoid(self.constant_control).expand(batch_size, self.mathModel.dim_d)
+
+        for n in range(self.mathModel.N - 1):
+            delta_t = self.mathModel.dt
+
+            control_tensor[:, n, :] = control
+
+            jumps = self.mathModel.jumps(batch_size)
+
+            f += self.mathModel.f(delta_t * n, x) * delta_t
+
+            h = self.mathModel.step_forward(n, h, jumps)
+
+            C_R += self.mathModel.dCR(n, jumps, x, control)
+
+            vd = self.mathModel.h_to_vd(n, h)
+
+            x = torch.cat((vd, C_R), dim=-1)
+
+            x_tensor[:, n + 1, :] = x
+
+        J = f + self.mathModel.g(x, poiss)
+
+        return control_tensor, x_tensor, J.unsqueeze(-1)
