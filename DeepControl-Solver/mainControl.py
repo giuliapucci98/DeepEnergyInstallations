@@ -18,7 +18,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
 
-train= False
+train= True 
 
 #base_dir = Path(__file__).resolve().parent
 base_dir = Path.cwd()
@@ -26,7 +26,7 @@ path = str(base_dir / "state_dicts") + os.sep
 
 new_folder_flag = True
 
-new_folder = str(base_dir / "control09_03")
+new_folder = str(base_dir / "control_locations")
 
 if new_folder_flag:
     path = str(Path(new_folder) / "state_dicts") + os.sep
@@ -34,16 +34,15 @@ if new_folder_flag:
         os.makedirs(path)
     if not os.path.exists(str(Path(new_folder) / "Graphs")):
         os.makedirs(str(Path(new_folder) / "Graphs"))
-        path = new_folder + path
     graph_path = str(Path(new_folder) / "Graphs") + os.sep
 ref_flag = False
 dim_y, dim_d, dim_h =  1, 3, 256
 dim_x = 2*dim_d + 1
 dim_j = dim_d + 1
-itr, batch_size, MC_size, lr =  1500, 2000, 5000, 0.001
+itr, batch_size, MC_size, lr =  3000, 2000, 5000, 0.001
 x0, T, multiplyer = 0.0, 1.0, 20
 
-n_runs = 5
+n_runs = 10
 
 
 a = 365

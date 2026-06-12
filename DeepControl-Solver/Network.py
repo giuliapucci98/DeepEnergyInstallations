@@ -117,7 +117,8 @@ class ModelControlConstant(nn.Module):
     def __init__(self, equation):
         super(ModelControlConstant, self).__init__()
 
-        self.constant_control = nn.Parameter(torch.zeros(1))
+        #self.constant_control = nn.Parameter(torch.zeros(1)) #same across locations
+        self.constant_control = nn.Parameter(torch.zeros(equation.dim_d)) #varies across dimensions
 
 
         self.mathModel = equation
@@ -140,8 +141,10 @@ class ModelControlConstant(nn.Module):
 
         poiss = torch.zeros(batch_size, self.mathModel.dim_j, device=device)
 
-        control = torch.sigmoid(self.constant_control).expand(batch_size, self.mathModel.dim_d)
+        #control = torch.sigmoid(self.constant_control).expand(batch_size, self.mathModel.dim_d) #same control for all time steps and locations
+        control = torch.sigmoid(self.constant_control).unsqueeze(0).expand(batch_size, -1) #varies across dimension
 
+        
         for n in range(self.mathModel.N - 1):
             delta_t = self.mathModel.dt
 

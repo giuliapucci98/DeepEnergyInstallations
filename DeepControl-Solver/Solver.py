@@ -24,7 +24,7 @@ class Train():
     def __init__(self, mathModel, dim_h):
         self.mathModel = mathModel
         self.dim_h = dim_h
-        #self.model = ModelControlConstant(mathModel, self.dim_h)
+        #self.model = ModelControl(mathModel, self.dim_h)
         self.model = ModelControlConstant(mathModel)
         self.model.to(torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
 
@@ -37,7 +37,8 @@ class Train():
         for i in range(itr):
             control, x, J = self.model(batch_size)
             if i % 50 == 0:
-                print("itr=", str(i) , "control:", control[0], "J:", J[0])
+                dims_str = " | ".join([f"dim{j+1}: {control[0, 0, j].item():.4f}" for j in range(self.mathModel.dim_d)])
+                print(f"itr={i} | {dims_str} | J: {J[0].item():.4f}")
             if torch.isnan(x).any():
                 print("NaN detected in x at iteration", i)
                 break
